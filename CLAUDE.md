@@ -41,6 +41,19 @@ Parse via `parseCodexEvent()` in `src/utils/codex.ts`.
 
 **Session index** — `~/.codex/session_index.jsonl` is append-only; each line is a session record. Use `readSessions()` which returns them newest-first.
 
+## Skill routing
+
+When the user's request matches an available skill, ALWAYS invoke it using the Skill
+tool as your FIRST action. Do NOT answer directly, do NOT use other tools first.
+
+Key routing rules:
+- Bugs, errors, "why is this broken" → invoke investigate
+- Ship, deploy, push, create PR → invoke ship
+- QA, test the extension → invoke qa
+- Code review, check my diff → invoke review
+- Architecture decisions → invoke plan-eng-review
+- Save progress → invoke context-save
+
 ## Gotchas
 
 - Raycast Detail view markdown re-renders on each state update — batch stdout lines before setState to avoid jitter.

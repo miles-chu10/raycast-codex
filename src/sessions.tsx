@@ -1,4 +1,4 @@
-import { List, ActionPanel, Action, useNavigation, Icon, Color, Form, showToast, Toast, getPreferenceValues } from "@raycast/api";
+import { List, ActionPanel, Action, useNavigation, Icon, Color, Form, showToast, Toast, getPreferenceValues, LocalStorage } from "@raycast/api";
 import { useState, useEffect } from "react";
 import fs from "fs";
 import { readSessions, CodexSession } from "./utils/codex";
@@ -22,6 +22,13 @@ function formatRelativeTime(isoDate: string): string {
 
 function ResumePanel({ session }: { session: CodexSession }) {
   const { push } = useNavigation();
+  const [savedDirectory, setSavedDirectory] = useState<string | undefined>(undefined);
+
+  useEffect(() => {
+    LocalStorage.getItem<string>(`session-dir:${session.id}`).then((dir) => {
+      if (dir) setSavedDirectory(dir);
+    });
+  }, [session.id]);
 
   async function handleSubmit(values: { directory: string[]; prompt: string }) {
     const directory = values.directory?.[0];
@@ -68,6 +75,7 @@ function ResumePanel({ session }: { session: CodexSession }) {
         allowMultipleSelection={false}
         canChooseFiles={false}
         canChooseDirectories={true}
+        defaultValue={savedDirectory ? [savedDirectory] : undefined}
       />
       <Form.TextArea
         id="prompt"

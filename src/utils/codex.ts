@@ -63,8 +63,6 @@ export function buildCodexArgs(opts: RunTaskOptions): string[] {
     args.push("-m", opts.model);
   }
 
-  args.push("-C", opts.directory);
-
   // Prompt is the final positional argument
   if (opts.prompt) {
     args.push(opts.prompt);

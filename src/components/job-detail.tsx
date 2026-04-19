@@ -1,4 +1,4 @@
-import { Detail, ActionPanel, Action, getPreferenceValues } from "@raycast/api";
+import { Detail, ActionPanel, Action, getPreferenceValues, LocalStorage } from "@raycast/api";
 import { ChildProcess, spawn } from "child_process";
 import { useEffect, useRef, useState } from "react";
 import { buildCodexArgs, parseCodexEvent } from "../utils/codex";
@@ -28,6 +28,7 @@ export function JobDetail({ prompt, directory, model, fullAuto = true, sessionId
     const args = buildCodexArgs({ prompt, directory, model: model || undefined, fullAuto, sessionId });
 
     const proc = spawn(codexBin, args, {
+      cwd: directory,
       env: { ...process.env, PATH: `/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:${process.env.PATH ?? ""}` },
     });
     processRef.current = proc;
@@ -41,6 +42,15 @@ export function JobDetail({ prompt, directory, model, fullAuto = true, sessionId
 
       for (const line of lines) {
         if (!line.trim()) continue;
+        // Persist session→directory mapping when the session ID is first announced
+        try {
+          const raw = JSON.parse(line) as { type: string; payload: { id?: string } };
+          if (raw.type === "session_meta" && raw.payload?.id) {
+            LocalStorage.setItem(`session-dir:${raw.payload.id}`, directory);
+          }
+        } catch {
+          // not JSON — ignore
+        }
         const parsed = parseCodexEvent(line);
         if (parsed) {
           setMarkdown((prev) => prev + parsed.text);
