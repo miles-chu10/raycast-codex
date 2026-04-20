@@ -1,12 +1,21 @@
-import { Form, ActionPanel, Action, useNavigation, showToast, Toast } from "@raycast/api";
+import {
+  Form,
+  ActionPanel,
+  Action,
+  useNavigation,
+  showToast,
+  Toast,
+} from "@raycast/api";
 import { JobDetail } from "./components/job-detail";
 import { savePrompt } from "./utils/storage";
+import { CODEX_WORKFLOWS } from "./utils/workflows";
 
 interface FormValues {
   prompt: string;
   directory: string[];
   model: string;
   fullAuto: boolean;
+  workflow: string;
 }
 
 export default function RunTask({
@@ -21,11 +30,17 @@ export default function RunTask({
   async function handleSubmit(values: FormValues) {
     const directory = values.directory?.[0];
     if (!directory) {
-      await showToast({ style: Toast.Style.Failure, title: "No directory selected" });
+      await showToast({
+        style: Toast.Style.Failure,
+        title: "No directory selected",
+      });
       return;
     }
     if (!values.prompt.trim()) {
-      await showToast({ style: Toast.Style.Failure, title: "Prompt is required" });
+      await showToast({
+        style: Toast.Style.Failure,
+        title: "Prompt is required",
+      });
       return;
     }
 
@@ -35,13 +50,17 @@ export default function RunTask({
         directory={directory}
         model={values.model || undefined}
         fullAuto={values.fullAuto}
+        workflow={values.workflow}
       />,
     );
   }
 
   async function handleSavePrompt(values: FormValues) {
     if (!values.prompt.trim()) {
-      await showToast({ style: Toast.Style.Failure, title: "Prompt is required" });
+      await showToast({
+        style: Toast.Style.Failure,
+        title: "Prompt is required",
+      });
       return;
     }
     const firstLine = values.prompt.trim().split("\n")[0].slice(0, 80);
@@ -78,11 +97,23 @@ export default function RunTask({
         defaultValue={initialDirectory ? [initialDirectory] : undefined}
       />
       <Form.Separator />
+      <Form.Dropdown id="workflow" title="Workflow" defaultValue="custom">
+        {CODEX_WORKFLOWS.map((workflow) => (
+          <Form.Dropdown.Item
+            key={workflow.id}
+            value={workflow.id}
+            title={workflow.title}
+          />
+        ))}
+      </Form.Dropdown>
       <Form.Dropdown id="model" title="Model" defaultValue="">
         <Form.Dropdown.Item value="" title="Default (gpt-5.4)" />
         <Form.Dropdown.Item value="o4-mini" title="o4-mini" />
         <Form.Dropdown.Item value="o3" title="o3" />
-        <Form.Dropdown.Item value="gpt-5.3-codex-spark" title="Spark (gpt-5.3-codex-spark)" />
+        <Form.Dropdown.Item
+          value="gpt-5.3-codex-spark"
+          title="Spark (gpt-5.3-codex-spark)"
+        />
       </Form.Dropdown>
       <Form.Checkbox
         id="fullAuto"
