@@ -1,13 +1,20 @@
-import { List, ActionPanel, Action, useNavigation, Icon, Color, Form, showToast, Toast, getPreferenceValues, LocalStorage } from "@raycast/api";
+import {
+  List,
+  ActionPanel,
+  Action,
+  useNavigation,
+  Icon,
+  Color,
+  Form,
+  showToast,
+  Toast,
+  LocalStorage,
+} from "@raycast/api";
 import { useState, useEffect } from "react";
 import fs from "fs";
-import { readSessions, CodexSession } from "./utils/codex";
+import { getCodexPath, readSessions, CodexSession } from "./utils/codex";
 import { JobDetail } from "./components/job-detail";
 import RunTask from "./run-task";
-
-interface Preferences {
-  codexPath: string;
-}
 
 function formatRelativeTime(isoDate: string): string {
   const diff = Date.now() - new Date(isoDate).getTime();
@@ -22,7 +29,9 @@ function formatRelativeTime(isoDate: string): string {
 
 function ResumePanel({ session }: { session: CodexSession }) {
   const { push } = useNavigation();
-  const [savedDirectory, setSavedDirectory] = useState<string | undefined>(undefined);
+  const [savedDirectory, setSavedDirectory] = useState<string | undefined>(
+    undefined,
+  );
 
   useEffect(() => {
     LocalStorage.getItem<string>(`session-dir:${session.id}`).then((dir) => {
@@ -33,12 +42,14 @@ function ResumePanel({ session }: { session: CodexSession }) {
   async function handleSubmit(values: { directory: string[]; prompt: string }) {
     const directory = values.directory?.[0];
     if (!directory) {
-      await showToast({ style: Toast.Style.Failure, title: "No directory selected" });
+      await showToast({
+        style: Toast.Style.Failure,
+        title: "No directory selected",
+      });
       return;
     }
 
-    const prefs = getPreferenceValues<Preferences>();
-    const codexBin = prefs.codexPath?.trim() || "/opt/homebrew/bin/codex";
+    const codexBin = getCodexPath();
     if (!fs.existsSync(codexBin)) {
       await showToast({
         style: Toast.Style.Failure,
@@ -100,7 +111,9 @@ export default function Sessions() {
   }, []);
 
   const filtered = searchText
-    ? sessions.filter((s) => s.thread_name.toLowerCase().includes(searchText.toLowerCase()))
+    ? sessions.filter((s) =>
+        s.thread_name.toLowerCase().includes(searchText.toLowerCase()),
+      )
     : sessions;
 
   return (
@@ -124,7 +137,12 @@ export default function Sessions() {
             icon={{ source: Icon.Clock, tintColor: Color.Blue }}
             title={session.thread_name}
             subtitle={formatRelativeTime(session.updated_at)}
-            accessories={[{ text: session.id.slice(0, 8), tooltip: `Full ID: ${session.id}` }]}
+            accessories={[
+              {
+                text: session.id.slice(0, 8),
+                tooltip: `Full ID: ${session.id}`,
+              },
+            ]}
             actions={
               <ActionPanel>
                 <Action

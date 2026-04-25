@@ -1,11 +1,8 @@
-import { Detail, ActionPanel, Action, getPreferenceValues, LocalStorage } from "@raycast/api";
+import { Detail, ActionPanel, Action, LocalStorage } from "@raycast/api";
 import { ChildProcess, spawn } from "child_process";
 import { useEffect, useRef, useState } from "react";
-import { buildCodexArgs, parseCodexEvent } from "../utils/codex";
-
-interface Preferences {
-  codexPath: string;
-}
+import { buildCodexArgs, getCodexPath, parseCodexEvent } from "../utils/codex";
+import { buildWorkflowPrompt, getWorkflow } from "../utils/workflows";
 
 export interface JobDetailProps {
   prompt: string;
@@ -13,23 +10,41 @@ export interface JobDetailProps {
   model?: string;
   fullAuto?: boolean;
   sessionId?: string;
+  workflow?: string;
 }
 
-export function JobDetail({ prompt, directory, model, fullAuto = true, sessionId }: JobDetailProps) {
+export function JobDetail({
+  prompt,
+  directory,
+  model,
+  fullAuto = true,
+  sessionId,
+  workflow,
+}: JobDetailProps) {
+  const selectedWorkflow = getWorkflow(workflow);
   const [markdown, setMarkdown] = useState<string>(
-    `## Codex Task\n\n**Directory:** \`${directory}\`\n\n**Prompt:** ${prompt}\n\n---\n\n`,
+    `## Codex Task\n\n**Workflow:** ${selectedWorkflow.title}\n\n**Directory:** \`${directory}\`\n\n**Prompt:** ${prompt}\n\n---\n\n`,
   );
   const [status, setStatus] = useState<"running" | "done" | "error">("running");
   const processRef = useRef<ChildProcess | null>(null);
 
   useEffect(() => {
-    const prefs = getPreferenceValues<Preferences>();
-    const codexBin = prefs.codexPath?.trim() || "/opt/homebrew/bin/codex";
-    const args = buildCodexArgs({ prompt, directory, model: model || undefined, fullAuto, sessionId });
+    const codexBin = getCodexPath();
+    const effectivePrompt = buildWorkflowPrompt(selectedWorkflow.id, prompt);
+    const args = buildCodexArgs({
+      prompt: effectivePrompt,
+      directory,
+      model: model || undefined,
+      fullAuto,
+      sessionId,
+    });
 
     const proc = spawn(codexBin, args, {
       cwd: directory,
-      env: { ...process.env, PATH: `/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:${process.env.PATH ?? ""}` },
+      env: {
+        ...process.env,
+        PATH: `/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:${process.env.PATH ?? ""}`,
+      },
     });
     processRef.current = proc;
 
@@ -44,7 +59,10 @@ export function JobDetail({ prompt, directory, model, fullAuto = true, sessionId
         if (!line.trim()) continue;
         // Persist session→directory mapping when the session ID is first announced
         try {
-          const raw = JSON.parse(line) as { type: string; payload: { id?: string } };
+          const raw = JSON.parse(line) as {
+            type: string;
+            payload: { id?: string };
+          };
           if (raw.type === "session_meta" && raw.payload?.id) {
             LocalStorage.setItem(`session-dir:${raw.payload.id}`, directory);
           }
@@ -71,7 +89,11 @@ export function JobDetail({ prompt, directory, model, fullAuto = true, sessionId
         setMarkdown((prev) => prev + "\n---\n✅ **Task complete.**");
       } else {
         setStatus("error");
-        setMarkdown((prev) => prev + `\n---\n❌ **Process exited with code ${code ?? "unknown"}.**`);
+        setMarkdown(
+          (prev) =>
+            prev +
+            `\n---\n❌ **Process exited with code ${code ?? "unknown"}.**`,
+        );
       }
     });
 

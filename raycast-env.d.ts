@@ -9,7 +9,9 @@
 
 type ExtensionPreferences = {
   /** Codex Binary Path - Full path to the codex binary */
-  "codexPath": string
+  "codexPath": string,
+  /** Default Working Directory - Default directory for @Codex workflow runs when no project path is provided */
+  "defaultDirectory": string
 }
 
 /** Preferences accessible in all the extension's commands */

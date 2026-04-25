@@ -9,7 +9,19 @@ interface Preferences {
 
 export function getCodexPath(): string {
   const prefs = getPreferenceValues<Preferences>();
-  return prefs.codexPath?.trim() || "/opt/homebrew/bin/codex";
+  const configured = prefs.codexPath?.trim();
+  const candidates = [
+    configured,
+    "/opt/homebrew/bin/codex",
+    "/usr/local/bin/codex",
+    path.join(os.homedir(), ".local", "bin", "codex"),
+  ].filter((candidate): candidate is string => Boolean(candidate));
+
+  return (
+    candidates.find((candidate) => fs.existsSync(candidate)) ||
+    configured ||
+    "codex"
+  );
 }
 
 export interface CodexSession {
@@ -73,17 +85,53 @@ export function buildCodexArgs(opts: RunTaskOptions): string[] {
 
 // Parse a JSONL event from codex exec --json into a human-readable chunk.
 // Returns null for events we don't want to surface (metadata, tool outputs, etc).
-export function parseCodexEvent(line: string): { text: string; kind: "text" | "tool" | "meta" } | null {
-  let event: { type: string; payload: Record<string, unknown> };
+export function parseCodexEvent(
+  line: string,
+): { text: string; kind: "text" | "tool" | "meta" } | null {
+  let event: {
+    type: string;
+    payload?: Record<string, unknown>;
+    content?: string;
+    name?: string;
+    input?: unknown;
+    output?: string;
+    session_id?: string;
+  };
   try {
     event = JSON.parse(line);
   } catch {
     return null;
   }
 
+  if (event.type === "message" && typeof event.content === "string") {
+    return { text: event.content, kind: "text" };
+  }
+
+  if (event.type === "tool_call") {
+    const input =
+      typeof event.input === "string"
+        ? event.input
+        : JSON.stringify(event.input ?? "");
+    const label = event.name ? `**[${event.name}]**` : "**[tool]**";
+    return {
+      text: `\n${label}\n\`\`\`\n${input.trim()}\n\`\`\`\n`,
+      kind: "tool",
+    };
+  }
+
+  if (event.type === "done") {
+    return {
+      text: `_Session \`${event.session_id ?? "unknown"}\` finished_\n\n`,
+      kind: "meta",
+    };
+  }
+
   if (event.type === "session_meta") {
-    const p = event.payload as { id?: string };
-    return { text: `_Session \`${p.id ?? "unknown"}\` started_\n\n`, kind: "meta" };
+    const p = event.payload as { id?: string } | undefined;
+    return {
+      text: `_Session \`${p?.id ?? "unknown"}\` started_\n\n`,
+      kind: "meta",
+    };
   }
 
   if (event.type === "response_item") {
@@ -104,7 +152,10 @@ export function parseCodexEvent(line: string): { text: string; kind: "text" | "t
     }
 
     if (p.type === "tool_use" || p.type === "tool_call") {
-      const cmd = typeof p.arguments === "string" ? p.arguments.trim() : JSON.stringify(p.arguments ?? "");
+      const cmd =
+        typeof p.arguments === "string"
+          ? p.arguments.trim()
+          : JSON.stringify(p.arguments ?? "");
       const label = p.name ? `**[${p.name}]**` : "**[tool]**";
       return { text: `\n${label}\n\`\`\`\n${cmd}\n\`\`\`\n`, kind: "tool" };
     }
